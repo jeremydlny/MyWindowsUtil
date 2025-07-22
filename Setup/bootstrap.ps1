@@ -1,0 +1,28 @@
+# Windows Setup Bootstrap Script
+
+#Requires -RunAsAdministrator
+
+Set-ExecutionPolicy Bypass -Scope Process -Force
+
+# Log function
+$logDir = "$env:USERPROFILE\Documents\WindowsSetupLogs"
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+function Write-Log { param([string]$m); $t = Get-Date -Format "yyyy-MM-dd HH:mm:ss"; $l = "[$t] $m"; Write-Output $l; Add-Content -Path "$logDir\setup.log" -Value $l }
+
+# Install Chris Titus Tech PowerShell profile
+Write-Log "Installing Chris Titus Tech PowerShell profile..."
+irm "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1" | iex
+
+# Install Nerd Font (Cascadia Code)
+Write-Log "Downloading Cascadia Code Nerd Font..."
+$fontUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v2.3.3/CascadiaCode.zip"
+$fontZip = "$env:TEMP\CascadiaCode.zip"
+Invoke-WebRequest -Uri $fontUrl -OutFile $fontZip
+Write-Log "Font downloaded to $fontZip. Extract and install manually if needed."
+
+# Run app installer script
+Write-Log "Installing applications from Scripts\install_apps.ps1..."
+& "$PSScriptRoot\..\Scripts\install_apps.ps1"
+
+Write-Log "Setup complete! Please restart your terminal."
+Write-Host "`n🎉 Setup completed! Restart your terminal. Install fonts from CascadiaCode.zip if needed.`n" -ForegroundColor Green
