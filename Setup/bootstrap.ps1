@@ -25,62 +25,86 @@ try {
 }
 
 # Run app installer script
-Write-Log "Installing applications from Scripts\install_apps.ps1..."
+Write-Log "Looking for install_apps.ps1..."
 
-# Déterminer le répertoire racine du script de manière plus robuste
-$scriptRoot = $null
+# Déterminer le répertoire du script bootstrap.ps1
+$scriptDirectory = $null
 
-if ($PSScriptRoot -and $PSScriptRoot -ne "") {
-    $scriptRoot = $PSScriptRoot
-    Write-Log "Using PSScriptRoot: $scriptRoot"
-} elseif ($MyInvocation.MyCommand.Path -and $MyInvocation.MyCommand.Path -ne "") {
-    $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-    Write-Log "Using MyInvocation path: $scriptRoot"
+# Essayer plusieurs méthodes pour obtenir le répertoire du script
+if ($PSScriptRoot -and $PSScriptRoot -ne "" -and (Test-Path $PSScriptRoot)) {
+    $scriptDirectory = $PSScriptRoot
+    Write-Log "Using PSScriptRoot: $scriptDirectory"
+} elseif ($MyInvocation.MyCommand.Path -and $MyInvocation.MyCommand.Path -ne "" -and (Test-Path (Split-Path -Parent $MyInvocation.MyCommand.Path))) {
+    $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+    Write-Log "Using MyInvocation path: $scriptDirectory"
 } else {
-    # Fallback: utiliser le répertoire de travail actuel
-    $scriptRoot = Get-Location
-    Write-Log "Using current location as fallback: $scriptRoot"
+    # Fallback: chercher dans le répertoire courant et ses parents
+    $currentDir = Get-Location
+    Write-Log "Fallback: searching from current directory: $currentDir"
+    
+    # Vérifier si on est dans le dossier Setup ou un sous-dossier
+    if ($currentDir.Path -like "*Setup*" -or (Test-Path (Join-Path $currentDir "Scripts\install_apps.ps1"))) {
+        $scriptDirectory = $currentDir
+    } elseif (Test-Path (Join-Path $currentDir "Setup\Scripts\install_apps.ps1")) {
+        $scriptDirectory = Join-Path $currentDir "Setup"
+    }
 }
 
-if ($scriptRoot) {
-    $appsScript = Join-Path -Path $scriptRoot -ChildPath "..\Scripts\install_apps.ps1"
-    Write-Log "Looking for apps script at: $appsScript"
+# Chercher le script install_apps.ps1 dans la structure de projet
+$appsScript = $null
+
+if ($scriptDirectory) {
+    # Structure attendue: MyWindowsUtil/Setup/Scripts/install_apps.ps1
+    $possiblePaths = @(
+        (Join-Path $scriptDirectory "Scripts\install_apps.ps1"),
+        (Join-Path $scriptDirectory "..\Setup\Scripts\install_apps.ps1"),
+        (Join-Path (Split-Path $scriptDirectory -Parent) "Setup\Scripts\install_apps.ps1")
+    )
     
-    if (Test-Path $appsScript) {
-        Write-Log "Found install_apps.ps1, executing..."
-        try {
-            & $appsScript
-            Write-Log "Apps installation completed successfully."
-        } catch {
-            Write-Log "ERROR: Failed to execute install_apps.ps1 - $($_.Exception.Message)"
-        }
-    } else {
-        Write-Log "ERROR: Could not find install_apps.ps1 at $appsScript"
-        Write-Log "Current directory contents:"
-        Get-ChildItem -Path $scriptRoot | ForEach-Object { Write-Log "  - $($_.Name)" }
-        
-        # Chercher le fichier dans d'autres emplacements possibles
-        $possiblePaths = @(
-            Join-Path -Path $scriptRoot -ChildPath "Scripts\install_apps.ps1",
-            Join-Path -Path $scriptRoot -ChildPath "install_apps.ps1",
-            Join-Path -Path (Split-Path $scriptRoot) -ChildPath "Scripts\install_apps.ps1"
-        )
-        
-        foreach ($path in $possiblePaths) {
-            if (Test-Path $path) {
-                Write-Log "Found install_apps.ps1 at alternative location: $path"
-                try {
-                    & $path
-                    Write-Log "Apps installation completed successfully from alternative location."
-                    break
-                } catch {
-                    Write-Log "ERROR: Failed to execute install_apps.ps1 from $path - $($_.Exception.Message)"
-                }
-            }
+    foreach ($path in $possiblePaths) {
+        Write-Log "Checking path: $path"
+        if (Test-Path $path) {
+            $appsScript = $path
+            Write-Log "Found install_apps.ps1 at: $appsScript"
+            break
         }
     }
+}
+
+# Si pas trouvé avec la structure, faire une recherche plus large
+if (-not $appsScript) {
+    Write-Log "Script not found in expected locations, searching more broadly..."
+    
+    # Recherche récursive depuis le répertoire courant
+    $currentDir = Get-Location
+    $found = Get-ChildItem -Path $currentDir -Name "install_apps.ps1" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) {
+        $appsScript = Join-Path $currentDir $found
+        Write-Log "Found install_apps.ps1 via recursive search: $appsScript"
+    }
+}
+
+# Exécuter le script s'il est trouvé
+if ($appsScript -and (Test-Path $appsScript)) {
+    Write-Log "Executing install_apps.ps1..."
+    try {
+        & $appsScript
+        Write-Log "Apps installation completed successfully."
+    } catch {
+        Write-Log "ERROR: Failed to execute install_apps.ps1 - $($_.Exception.Message)"
+    }
 } else {
-    Write-Log "ERROR: Could not determine script root directory"
+    Write-Log "ERROR: Could not find install_apps.ps1"
+    Write-Log "Expected structure: MyWindowsUtil/Setup/Scripts/install_apps.ps1"
+    Write-Log "Current working directory: $(Get-Location)"
+    
+    # Afficher les fichiers dans le répertoire courant pour debug
+    if (Test-Path (Get-Location)) {
+        Write-Log "Contents of current directory:"
+        Get-ChildItem -Path (Get-Location) -Force | ForEach-Object { Write-Log "  - $($_.Name)" }
+    }
+    
+    Write-Log "Skipping app installation."
 }
 
 Write-Log "Setup complete! Please restart your terminal."

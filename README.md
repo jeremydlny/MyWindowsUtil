@@ -55,6 +55,22 @@ Automated setup script for configuring your Windows terminal with essential tool
 - Place your overrides and custom variables in `Config/default.ps1`.
 - To add or remove applications, edit `Scripts/install_apps.ps1`.
 
+## Project structure
+
+```
+MyWindowsUtil/
+│
+├── Setup/
+│   ├── bootstrap.ps1
+│   ├── Config/
+│   │   └── default.ps1
+│   └── Scripts/
+│       └── install_apps.ps1
+│
+├── README.md
+└── (other files...)
+```
+
 ## License
 
 MIT License
