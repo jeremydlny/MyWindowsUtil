@@ -26,18 +26,23 @@ Automated setup script for configuring your Windows terminal with essential tool
 ## What the script does
 
 - Installs the Chris Titus Tech PowerShell profile for a modern terminal experience
-- Downloads Cascadia Code Nerd Font (`CascadiaCode.zip`) to your temp folder
 - Installs the following applications via winget:
   - Brave Browser
   - GitKraken
   - Discord
   - VLC Media Player
   - ProtonVPN
-  - qBittorrent
-  - CCleaner
+  - Transmission
   - PowerToys
   - Firefox
   - Visual Studio Code
+  - Steam
+  - BattleNet
+  - Thunderbird
+  - Notion
+  - Apple Music
+  - Plex
+  - Plex Media Server
 
 ## Post-Installation
 
