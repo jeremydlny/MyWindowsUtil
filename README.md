@@ -62,8 +62,6 @@ MyWindowsUtil/
 │
 ├── Setup/
 │   ├── bootstrap.ps1
-│   ├── Config/
-│   │   └── default.ps1
 │   └── Scripts/
 │       └── install_apps.ps1
 │
