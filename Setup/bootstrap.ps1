@@ -22,7 +22,12 @@ Write-Log "Font downloaded to $fontZip. Extract and install manually if needed."
 
 # Run app installer script
 Write-Log "Installing applications from Scripts\install_apps.ps1..."
-& "$PSScriptRoot\..\Scripts\install_apps.ps1"
+$appsScript = Join-Path -Path $PSScriptRoot -ChildPath "..\Scripts\install_apps.ps1"
+if (Test-Path $appsScript) {
+    & $appsScript
+} else {
+    Write-Log "ERROR: Could not find install_apps.ps1 at $appsScript"
+}
 
 Write-Log "Setup complete! Please restart your terminal."
 Write-Host "`n🎉 Setup completed! Restart your terminal. Install fonts from CascadiaCode.zip if needed.`n" -ForegroundColor Green
