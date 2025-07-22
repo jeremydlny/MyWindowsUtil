@@ -20,6 +20,17 @@ $fontZip = "$env:TEMP\CascadiaCode.zip"
 Invoke-WebRequest -Uri $fontUrl -OutFile $fontZip
 Write-Log "Font downloaded to $fontZip. Extract and install manually if needed."
 
+# Optionally install Chocolatey if not present, but do not show warnings if already installed
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-Log "Installing Chocolatey..."
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    Write-Log "Chocolatey installation attempted."
+} else {
+    # Chocolatey already installed, do nothing and show no warning
+}
+
 # Run app installer script
 Write-Log "Installing applications from Scripts\install_apps.ps1..."
 $appsScript = Join-Path -Path $PSScriptRoot -ChildPath "..\Scripts\install_apps.ps1"
