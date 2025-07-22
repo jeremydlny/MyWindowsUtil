@@ -13,13 +13,6 @@ function Write-Log { param([string]$m); $t = Get-Date -Format "yyyy-MM-dd HH:mm:
 Write-Log "Installing Chris Titus Tech PowerShell profile..."
 irm "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1" | iex
 
-# Install Nerd Font (Cascadia Code)
-Write-Log "Downloading Cascadia Code Nerd Font..."
-$fontUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v2.3.3/CascadiaCode.zip"
-$fontZip = "$env:TEMP\CascadiaCode.zip"
-Invoke-WebRequest -Uri $fontUrl -OutFile $fontZip
-Write-Log "Font downloaded to $fontZip. Extract and install manually if needed."
-
 # Optionally install Chocolatey if not present, but do not show warnings if already installed
 if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-Log "Installing Chocolatey..."
