@@ -32,9 +32,9 @@ if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
 }
 
 # Run app installer script
-Write-Log "Installing applications from Scripts\install_apps.ps1..."
+Write-Log "Installing applications from Scrpits\install_apps.ps1..."
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
-$appsScript = Join-Path -Path $scriptRoot -ChildPath "..\Scripts\install_apps.ps1"
+$appsScript = Join-Path -Path $scriptRoot -ChildPath "..\Scrpits\install_apps.ps1"
 if (Test-Path $appsScript) {
     & $appsScript
 } else {
