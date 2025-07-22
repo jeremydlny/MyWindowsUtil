@@ -13,17 +13,6 @@ function Write-Log { param([string]$m); $t = Get-Date -Format "yyyy-MM-dd HH:mm:
 Write-Log "Installing Chris Titus Tech PowerShell profile..."
 irm "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1" | iex
 
-# Optionally install Chocolatey if not present, but do not show warnings if already installed
-if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-    Write-Log "Installing Chocolatey..."
-    Set-ExecutionPolicy Bypass -Scope Process -Force
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    Write-Log "Chocolatey installation attempted."
-} else {
-    # Chocolatey already installed, do nothing and show no warning
-}
-
 # Run app installer script
 Write-Log "Installing applications from Scripts\install_apps.ps1..."
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
