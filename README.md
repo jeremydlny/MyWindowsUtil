@@ -43,6 +43,7 @@ Automated setup script for configuring your Windows terminal with essential tool
   - Apple Music
   - Plex
   - Plex Media Server
+  - 1Password
 
 ## Post-Installation
 
