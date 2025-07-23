@@ -32,7 +32,6 @@ Automated setup script for configuring your Windows terminal with essential tool
   - Discord
   - VLC Media Player
   - ProtonVPN
-  - Transmission
   - PowerToys
   - Firefox
   - Visual Studio Code
@@ -43,6 +42,7 @@ Automated setup script for configuring your Windows terminal with essential tool
   - Apple Music
   - Plex
   - Plex Media Server
+  - 1Password
 
 ## Post-Installation
 
