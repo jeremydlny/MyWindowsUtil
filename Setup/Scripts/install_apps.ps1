@@ -28,7 +28,8 @@ function Install-Package {
         
         if ($process.ExitCode -eq 0) {
             return @{ Success = $true; Message = "Successfully installed $packageName" }
-        } else {
+        }
+        else {
             return @{ Success = $false; Message = "Failed to install $packageName (Exit code: $($process.ExitCode))" }
         }
     }
@@ -58,7 +59,6 @@ $standardApps = @(
 $heavyApps = @(
     @{Id = "Valve.Steam"; Name = "Steam"; Location = $null },
     @{Id = "Blizzard.BattleNet"; Name = "BattleNet"; Location = "C:\Program Files (x86)" },
-    @{Id = "Transmission.Transmission"; Name = "Transmission"; Location = $null },
     @{Id = "9PFHDD62MXS1"; Name = "Apple Music"; Location = $null },
     @{Id = "XP9CDQW6ML4NQN"; Name = "Plex"; Location = $null },
     @{Id = "XPFM11Z0W10R7G"; Name = "Plex Media Server"; Location = $null }
@@ -85,60 +85,63 @@ function Install-AppsParallel {
         $runspace.RunspacePool = $runspacePool
         
         [void]$runspace.AddScript({
-            param($packageId, $packageName, $installLocation)
+                param($packageId, $packageName, $installLocation)
             
-            try {
-                $wingetArgs = @(
-                    "install",
-                    "--id", $packageId,
-                    "--accept-package-agreements",
-                    "--accept-source-agreements",
-                    "--silent",
-                    "--disable-interactivity",
-                    "--force"
-                )
+                try {
+                    $wingetArgs = @(
+                        "install",
+                        "--id", $packageId,
+                        "--accept-package-agreements",
+                        "--accept-source-agreements",
+                        "--silent",
+                        "--disable-interactivity",
+                        "--force"
+                    )
                 
-                if ($installLocation) {
-                    $wingetArgs += "--location"
-                    $wingetArgs += $installLocation
+                    if ($installLocation) {
+                        $wingetArgs += "--location"
+                        $wingetArgs += $installLocation
+                    }
+                
+                    # Use direct winget execution
+                    $output = & winget @wingetArgs 2>&1
+                    $exitCode = $LASTEXITCODE
+                
+                    if ($exitCode -eq 0) {
+                        return @{ 
+                            Success = $true; 
+                            Status  = "installed"
+                            Message = "Successfully installed $packageName"
+                            App     = $packageName
+                        }
+                    }
+                    elseif ($exitCode -eq -1978335189 -or $exitCode -eq -1978335226 -or $exitCode -eq -1978335212) {
+                        # Already installed codes
+                        return @{ 
+                            Success = $true; 
+                            Status  = "already_installed"
+                            Message = "$packageName is already installed"
+                            App     = $packageName
+                        }
+                    }
+                    else {
+                        return @{ 
+                            Success = $false; 
+                            Status  = "failed"
+                            Message = "Failed to install $packageName (Exit code: $exitCode)"
+                            App     = $packageName
+                        }
+                    }
                 }
-                
-                # Use direct winget execution
-                $output = & winget @wingetArgs 2>&1
-                $exitCode = $LASTEXITCODE
-                
-                if ($exitCode -eq 0) {
-                    return @{ 
-                        Success = $true; 
-                        Status = "installed"
-                        Message = "Successfully installed $packageName"
-                        App = $packageName
-                    }
-                } elseif ($exitCode -eq -1978335189 -or $exitCode -eq -1978335226 -or $exitCode -eq -1978335212) { # Already installed codes
-                    return @{ 
-                        Success = $true; 
-                        Status = "already_installed"
-                        Message = "$packageName is already installed"
-                        App = $packageName
-                    }
-                } else {
+                catch {
                     return @{ 
                         Success = $false; 
-                        Status = "failed"
-                        Message = "Failed to install $packageName (Exit code: $exitCode)"
-                        App = $packageName
+                        Status  = "error"
+                        Message = "Failed to install $packageName : $($_.Exception.Message)"
+                        App     = $packageName
                     }
                 }
-            }
-            catch {
-                return @{ 
-                    Success = $false; 
-                    Status = "error"
-                    Message = "Failed to install $packageName : $($_.Exception.Message)"
-                    App = $packageName
-                }
-            }
-        })
+            })
         
         [void]$runspace.AddParameter("packageId", $app.Id)
         [void]$runspace.AddParameter("packageName", $app.Name)
@@ -146,8 +149,8 @@ function Install-AppsParallel {
         
         $runspaces += @{
             Runspace = $runspace
-            Handle = $runspace.BeginInvoke()
-            App = $app.Name
+            Handle   = $runspace.BeginInvoke()
+            App      = $app.Name
         }
     }
     
@@ -159,9 +162,11 @@ function Install-AppsParallel {
             
             if ($result.Success -and $result.Status -eq "installed") {
                 Write-Host "✅ $($result.Message)" -ForegroundColor Green
-            } elseif ($result.Success -and $result.Status -eq "already_installed") {
+            }
+            elseif ($result.Success -and $result.Status -eq "already_installed") {
                 Write-Host "⚠️ $($result.Message)" -ForegroundColor Yellow
-            } else {
+            }
+            else {
                 Write-Host "❌ $($result.Message)" -ForegroundColor Red
             }
         }
@@ -178,7 +183,8 @@ function Install-AppsParallel {
 Write-Host "🔄 Updating winget sources..." -ForegroundColor Yellow
 try {
     winget source update --disable-interactivity | Out-Null
-} catch {
+}
+catch {
     Write-Host "⚠️ Warning: Could not update winget sources" -ForegroundColor Yellow
 }
 

@@ -32,7 +32,6 @@ Automated setup script for configuring your Windows terminal with essential tool
   - Discord
   - VLC Media Player
   - ProtonVPN
-  - Transmission
   - PowerToys
   - Firefox
   - Visual Studio Code
