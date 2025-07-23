@@ -1,48 +1,85 @@
-# Optimized Application Installer with Parallel Execution
+# Optimized Application Installer with Pre-Installation Check and Parallel Execution
 
-# Enhanced package installation with better error handling
-function Install-Package {
+# Function to check if an application is already installed
+function Test-AppInstalled {
     param (
         [string]$packageId,
-        [string]$packageName,
-        [string]$installLocation = $null
+        [string]$packageName
     )
     
     try {
-        $wingetArgs = @(
-            "install",
-            "--id", $packageId,
-            "--accept-package-agreements",
-            "--accept-source-agreements",
-            "--silent",
-            "--disable-interactivity"
-        )
-        
-        if ($installLocation) {
-            $wingetArgs += "--location"
-            $wingetArgs += $installLocation
+        # Method 1: Check with winget list (most reliable)
+        $wingetResult = winget list --id $packageId 2>$null
+        if ($LASTEXITCODE -eq 0 -and $wingetResult -like "*$packageId*") {
+            return $true
         }
         
-        # Execute winget with timeout
-        $process = Start-Process -FilePath "winget" -ArgumentList $wingetArgs -NoNewWindow -Wait -PassThru
+        # Method 2: Specific path checks for common applications
+        switch ($packageId) {
+            "Brave.Brave" { 
+                return (Test-Path "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\Application\brave.exe") -or
+                (Test-Path "$env:PROGRAMFILES\BraveSoftware\Brave-Browser\Application\brave.exe")
+            }
+            "Discord.Discord" { 
+                return Test-Path "$env:LOCALAPPDATA\Discord\Update.exe"
+            }
+            "Microsoft.VisualStudioCode" { 
+                return (Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe") -or
+                (Test-Path "$env:PROGRAMFILES\Microsoft VS Code\Code.exe")
+            }
+            "Valve.Steam" { 
+                return Test-Path "$env:PROGRAMFILES(X86)\Steam\Steam.exe"
+            }
+            "Blizzard.BattleNet" { 
+                return Test-Path "$env:PROGRAMFILES(X86)\Battle.net\Battle.net Launcher.exe"
+            }
+            "VideoLAN.VLC" { 
+                return (Test-Path "$env:PROGRAMFILES\VideoLAN\VLC\vlc.exe") -or
+                (Test-Path "$env:PROGRAMFILES(X86)\VideoLAN\VLC\vlc.exe")
+            }
+            "Microsoft.PowerToys" {
+                return Test-Path "$env:LOCALAPPDATA\Microsoft\WindowsApps\PowerToys.exe"
+            }
+            "AgileBits.1Password" {
+                return Test-Path "$env:LOCALAPPDATA\1password\app\8\1Password.exe"
+            }
+        }
         
-        if ($process.ExitCode -eq 0) {
-            return @{ Success = $true; Message = "Successfully installed $packageName" }
-        }
-        else {
-            return @{ Success = $false; Message = "Failed to install $packageName (Exit code: $($process.ExitCode))" }
-        }
+        return $false
     }
     catch {
-        return @{ Success = $false; Message = "Failed to install $packageName : $_" }
+        return $false
     }
+}
+
+# Filter out already installed applications
+function Get-AppsToInstall {
+    param([array]$Apps)
+    
+    $appsToInstall = @()
+    $alreadyInstalled = @()
+    
+    foreach ($app in $Apps) {
+        if (Test-AppInstalled -packageId $app.Id -packageName $app.Name) {
+            $alreadyInstalled += $app.Name
+        }
+        else {
+            $appsToInstall += $app
+        }
+    }
+    
+    if ($alreadyInstalled.Count -gt 0) {
+        Write-Host "⏩ Already installed: $($alreadyInstalled -join ', ')" -ForegroundColor Green
+    }
+    
+    return $appsToInstall
 }
 
 # Optimized application list with priority grouping
 $criticalApps = @(
     @{Id = "Microsoft.VisualStudioCode"; Name = "Visual Studio Code"; Location = $null },
     @{Id = "Brave.Brave"; Name = "Brave Browser"; Location = $null },
-    @{Id = "Microsoft.PowerToys"; Name = "PowerToys"; Location = $null }
+    @{Id = "Microsoft.PowerToys"; Name = "PowerToys"; Location = $null },
     @{Id = "AgileBits.1Password"; Name = "1Password"; Location = $null }
 )
 
@@ -72,7 +109,12 @@ function Install-AppsParallel {
         [string]$GroupName
     )
     
-    Write-Host "`n🚀 Installing $GroupName applications..." -ForegroundColor Cyan
+    if ($Apps.Count -eq 0) {
+        Write-Host "✅ All $GroupName applications are already installed!" -ForegroundColor Green
+        return
+    }
+    
+    Write-Host "`n🚀 Installing $($Apps.Count) $GroupName applications..." -ForegroundColor Cyan
     
     # Create runspace pool for better performance
     $runspacePool = [runspacefactory]::CreateRunspacePool(1, $BatchSize)
@@ -94,8 +136,7 @@ function Install-AppsParallel {
                         "--accept-package-agreements",
                         "--accept-source-agreements",
                         "--silent",
-                        "--disable-interactivity",
-                        "--force"
+                        "--disable-interactivity"
                     )
                 
                     if ($installLocation) {
@@ -120,7 +161,7 @@ function Install-AppsParallel {
                         return @{ 
                             Success = $true; 
                             Status  = "already_installed"
-                            Message = "$packageName is already installed"
+                            Message = "$packageName was already installed"
                             App     = $packageName
                         }
                     }
@@ -155,6 +196,9 @@ function Install-AppsParallel {
     }
     
     # Wait for all runspaces to complete and collect results
+    $successful = 0
+    $failed = 0
+    
     foreach ($rs in $runspaces) {
         try {
             $result = $rs.Runspace.EndInvoke($rs.Handle)
@@ -162,42 +206,63 @@ function Install-AppsParallel {
             
             if ($result.Success -and $result.Status -eq "installed") {
                 Write-Host "✅ $($result.Message)" -ForegroundColor Green
+                $successful++
             }
             elseif ($result.Success -and $result.Status -eq "already_installed") {
                 Write-Host "⚠️ $($result.Message)" -ForegroundColor Yellow
+                $successful++
             }
             else {
                 Write-Host "❌ $($result.Message)" -ForegroundColor Red
+                $failed++
             }
         }
         catch {
             Write-Host "❌ Error installing $($rs.App): $($_.Exception.Message)" -ForegroundColor Red
+            $failed++
         }
     }
     
     $runspacePool.Close()
     $runspacePool.Dispose()
+    
+    Write-Host "📊 $GroupName group: $successful successful, $failed failed" -ForegroundColor Cyan
 }
 
 # Pre-flight check: Update winget sources
 Write-Host "🔄 Updating winget sources..." -ForegroundColor Yellow
 try {
     winget source update --disable-interactivity | Out-Null
+    Write-Host "✅ Winget sources updated" -ForegroundColor Green
 }
 catch {
     Write-Host "⚠️ Warning: Could not update winget sources" -ForegroundColor Yellow
 }
 
-# Install applications in priority order with parallel execution
-Install-AppsParallel -Apps $criticalApps -BatchSize 2 -GroupName "Critical"
+Write-Host "`n🔍 Checking which applications need to be installed..." -ForegroundColor Magenta
+
+# Filter applications and install in priority order with parallel execution
+$criticalToInstall = Get-AppsToInstall -Apps $criticalApps
+Install-AppsParallel -Apps $criticalToInstall -BatchSize 2 -GroupName "Critical"
 
 # Small delay between groups to avoid overwhelming the system
-Start-Sleep -Seconds 2
+if ($criticalToInstall.Count -gt 0) { Start-Sleep -Seconds 2 }
 
-Install-AppsParallel -Apps $standardApps -BatchSize 3 -GroupName "Standard"
+$standardToInstall = Get-AppsToInstall -Apps $standardApps
+Install-AppsParallel -Apps $standardToInstall -BatchSize 3 -GroupName "Standard"
 
-Start-Sleep -Seconds 2
+if ($standardToInstall.Count -gt 0) { Start-Sleep -Seconds 2 }
 
-Install-AppsParallel -Apps $heavyApps -BatchSize 2 -GroupName "Heavy"
+$heavyToInstall = Get-AppsToInstall -Apps $heavyApps
+Install-AppsParallel -Apps $heavyToInstall -BatchSize 2 -GroupName "Heavy"
 
-Write-Host "`n🎉 All applications installation completed!" -ForegroundColor Green
+$totalOriginal = $criticalApps.Count + $standardApps.Count + $heavyApps.Count
+$totalToInstall = $criticalToInstall.Count + $standardToInstall.Count + $heavyToInstall.Count
+$totalSkipped = $totalOriginal - $totalToInstall
+
+Write-Host "`n" + "=" * 60 -ForegroundColor Gray
+Write-Host "🎉 Installation Summary:" -ForegroundColor Magenta
+Write-Host "   📊 Total applications: $totalOriginal" -ForegroundColor White
+Write-Host "   ⏩ Already installed: $totalSkipped" -ForegroundColor Green
+Write-Host "   📦 Newly processed: $totalToInstall" -ForegroundColor Blue
+Write-Host "=" * 60 -ForegroundColor Gray

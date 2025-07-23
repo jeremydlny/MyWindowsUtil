@@ -25,7 +25,8 @@ try {
     $profileScript = Invoke-RestMethod "https://github.com/ChrisTitusTech/powershell-profile/raw/main/setup.ps1"
     Invoke-Expression $profileScript
     Write-Log "PowerShell profile installed successfully."
-} catch {
+}
+catch {
     Write-Log "ERROR: Failed to install PowerShell profile - $($_.Exception.Message)"
 }
 
@@ -59,59 +60,55 @@ if (-not $appsScript) {
     }
 }
 
-# Install and run Chris Titus Tech Windows Utility with automatic tweaks import
-Write-Log "Downloading and launching Chris Titus Tech Windows Utility..."
-
-try {
-    # Download and run the utility
-    irm "https://christitus.com/win" | iex
-
-    # Wait for the utility module to be imported
-    Import-Module ctt-winutil -Force
-
-    # Download tweaks.json to Desktop
-    $desktop = [Environment]::GetFolderPath("Desktop")
-    $tweaksJson = Join-Path $desktop "tweaks.json"
-    $tweaksUrl = "https://raw.githubusercontent.com/jeremydlny/MyWindowsUtil/main/Setup/tweaks.json"
-    try {
-        Invoke-WebRequest -Uri $tweaksUrl -OutFile $tweaksJson -UseBasicParsing -ErrorAction Stop
-        Write-Log "Downloaded tweaks.json to Desktop."
-    } catch {
-        Write-Log "WARNING: Could not download tweaks.json to Desktop - $($_.Exception.Message)"
-    }
-
-    if (Test-Path $tweaksJson) {
-        Write-Log "Importing tweaks from tweaks.json on Desktop..."
-        # Import and apply tweaks
-        Import-WinUtilTweaks -Path $tweaksJson
-        Apply-WinUtilTweaks
-        Write-Log "Tweaks applied successfully."
-    } else {
-        Write-Log "WARNING: tweaks.json not found on Desktop. Skipping tweaks import."
-    }
-
-    # Close the WinUtil app if open
-    $winutilProc = Get-Process -Name "WinUtil" -ErrorAction SilentlyContinue
-    if ($winutilProc) {
-        Write-Log "Closing WinUtil app..."
-        $winutilProc | Stop-Process -Force
-    }
-} catch {
-    Write-Log "ERROR: Failed to run Chris Titus Tech Windows Utility - $($_.Exception.Message)"
-}
-
 # Execute apps installation
 if ($appsScript -and (Test-Path $appsScript)) {
     Write-Log "Executing optimized install_apps.ps1..."
     try {
         & $appsScript
         Write-Log "Apps installation completed successfully."
-    } catch {
+    }
+    catch {
         Write-Log "ERROR: Failed to execute install_apps.ps1 - $($_.Exception.Message)"
     }
-} else {
+}
+else {
     Write-Log "ERROR: Could not find install_apps.ps1"
     Write-Log "Skipping app installation."
+}
+
+# Launch Chris Titus Tech Windows Utility and download tweaks config
+Write-Log "Downloading and launching Chris Titus Tech Windows Utility..."
+try {
+    # Download tweaks.json to Desktop first
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    $tweaksJson = Join-Path $desktop "tweaks.json"
+    $tweaksUrl = "https://raw.githubusercontent.com/jeremydlny/MyWindowsUtil/main/Setup/tweaks.json"
+    
+    Write-Host "📥 Downloading tweaks configuration to Desktop..." -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri $tweaksUrl -OutFile $tweaksJson -UseBasicParsing -ErrorAction Stop
+        Write-Log "Downloaded tweaks.json to Desktop."
+        Write-Host "✅ tweaks.json downloaded to Desktop" -ForegroundColor Green
+    }
+    catch {
+        Write-Log "WARNING: Could not download tweaks.json to Desktop - $($_.Exception.Message)"
+        Write-Host "⚠️ Could not download tweaks.json" -ForegroundColor Yellow
+    }
+
+    # Launch Chris Titus Windows Utility
+    Write-Host "🚀 Launching Chris Titus Windows Utility..." -ForegroundColor Cyan
+    irm "https://christitus.com/win" | iex
+    
+    if (Test-Path $tweaksJson) {
+        Write-Host "💡 Import your tweaks: Use 'Import' button in the utility and select tweaks.json from Desktop" -ForegroundColor Blue
+    }
+    
+    Write-Log "Chris Titus Windows Utility launched successfully."
+    
+}
+catch {
+    Write-Log "ERROR: Failed to run Chris Titus Tech Windows Utility - $($_.Exception.Message)"
+    Write-Host "❌ Could not launch Windows Utility. You can run it manually with: irm 'https://christitus.com/win' | iex" -ForegroundColor Red
 }
 
 Write-Log "Setup complete! Please restart your terminal."
